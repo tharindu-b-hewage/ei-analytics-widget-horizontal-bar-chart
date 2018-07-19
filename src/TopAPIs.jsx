@@ -3,6 +3,8 @@ import Widget from '@wso2-dashboards/widget';
 import VizG from 'react-vizgrammar';
 import moment from 'moment';
 
+var BAR_GRAPH_TYPE = 'Component Type Selection';
+var URL_PARAMETER_ID = 'id';
 var DIV_ID_GRAPH = 'graph';
 var PUBLISHER_DATE_TIME_PICKER = 'granularity';
 var TENANT_ID = '-1234';
@@ -11,26 +13,13 @@ class TopAPIs extends Widget {
     constructor(props) {
         super(props);
 
-        this.state = {
-            graphConfig: {},
-            graphMetadata: {},
-            graphData: {},
-            graphWidth: props.width,
-            graphHeight: props.height,
-            clearGraph: true,
-            timeFromParameter: null,
-            timeToParameter: null,
-            timeUnitParameter: null
-        };
+        // Set title according to the graph style
+        this.props.glContainer.setTitle(
+            "TOP " + props.configs.options[BAR_GRAPH_TYPE].toUpperCase() + "S BY REQUEST COUNT"
+        );
 
-        this.handlePublisherParameters = this.handlePublisherParameters.bind(this);
-        this.handleGraphUpdate = this.handleGraphUpdate.bind(this);
-        this.handleStats = this.handleStats.bind(this);
-    }
-
-    componentWillMount() {
-        let config = {
-            "x": "Name",
+        var config = {
+            "x": 'Name',
             "charts": [
                 {
                     "type": "bar",
@@ -62,12 +51,31 @@ class TopAPIs extends Widget {
             ['TestAPI2', 43],
         ];
 
-        this.setState({
+        this.state = {
             graphConfig: config,
             graphMetadata: metadata,
-            graphData: data
-        });
+            graphData: data,
+            graphWidth: props.width,
+            graphHeight: props.height,
+            graphType: props.configs.options[BAR_GRAPH_TYPE],
+            clearGraph: true,
+            timeFromParameter: null,
+            timeToParameter: null,
+            timeUnitParameter: null
+        };
 
+        this.props.glContainer.on('resize', this.handleResize.bind(this));
+
+        this.handlePublisherParameters = this.handlePublisherParameters.bind(this);
+        this.handleGraphUpdate = this.handleGraphUpdate.bind(this);
+        this.handleStats = this.handleStats.bind(this);
+    }
+
+    handleResize() {
+        this.setState({width: this.props.glContainer.width, height: this.props.glContainer.height});
+    }
+
+    componentWillMount() {
         super.subscribe(this.handlePublisherParameters);
     }
 
@@ -100,8 +108,19 @@ class TopAPIs extends Widget {
                 let dataProviderConf = this.getProviderConf(message.data);
                 var query = dataProviderConf.configs.config.queryData.query;
 
+                let graphType = this.state.graphType;
+                let aggregator;
+                if (graphType === 'API' || graphType === 'Proxy Service' || graphType === 'Inbound Endpoint') {
+                    aggregator = 'ESBStat';
+                }
+                else {
+                    aggregator = 'MediatorStat';
+                }
+
                 // Insert required parameters to the query string
                 let formattedQuery = query
+                    .replace("{{aggregator}}", aggregator)
+                    .replace("{{componentType}}", "\'" + graphType + "\'")
                     .replace("{{tenantId}}", TENANT_ID)
                     .replace("{{timeFrom}}", "\'" + this.state.timeFromParameter + "\'")
                     .replace("{{timeTo}}", "\'" + this.state.timeToParameter + "\'")
@@ -115,7 +134,7 @@ class TopAPIs extends Widget {
                     );
             })
             .catch((error) => {
-               // console.log(error);
+                // console.log(error);
             });
     }
 
@@ -127,8 +146,6 @@ class TopAPIs extends Widget {
      * Draw the graph with the data retrieved from the data store
      */
     handleStats(stats) {
-       // console.log(JSON.stringify(stats));
-
         // For each data point(Ex: For each API), an array of [total invocations, component name of that data point]
         let dataPointArray = stats.data;
 
@@ -141,16 +158,34 @@ class TopAPIs extends Widget {
         // Build data for the graph
         let data = [];
         dataPointArray.forEach((dataPoint) => {
-            data.push(
-                [dataPoint[labelMapper.componentName], dataPoint[labelMapper.totalInvocations]]
-            );
+            // Filter well known components
+            let excludeEndpoints;
+            switch (this.state.graphType) {
+                case 'Endpoints':
+                    excludeEndpoints = ["AnonymousEndpoint"];
+                    break;
+                case 'Sequence':
+                    excludeEndpoints = ["PROXY_INSEQ", "PROXY_OUTSEQ", "PROXY_FAULTSEQ", "API_OUTSEQ", "API_INSEQ",
+                        "API_FAULTSEQ", "AnonymousSequence", "fault"];
+                    break;
+                default:
+                    excludeEndpoints = [];
+            }
+            let validity = excludeEndpoints.indexOf(dataPoint[labelMapper.componentName]) == -1 ? true : false;
+            if (validity) {
+                data.push(
+                    [dataPoint[labelMapper.componentName], dataPoint[labelMapper.totalInvocations]]
+                );
+            }
         });
 
-        // Draw the graph with received stats
-        this.setState({
-            graphData: data,
-            clearGraph: false
-        });
+        // Draw the graph with received stats only if data is present after filtering
+        if (data.length > 0) {
+            this.setState({
+                graphData: data,
+                clearGraph: false
+            });
+        }
     }
 
     /**
@@ -169,20 +204,67 @@ class TopAPIs extends Widget {
         );
     };
 
+    handleGraphOnClick(message) {
+        let clickedComponentName = message.Name;
+        let urlString = window.location.href;
+        let pageNameStartIndex = urlString.lastIndexOf('/');
+        let pageNameEndIndex = urlString.indexOf('?');
+        let redirectPageName;
+        switch (this.state.graphType) {
+            case 'API':
+                redirectPageName = 'api';
+                break;
+            case 'Endpoint':
+                redirectPageName = 'endpoint';
+                break;
+            case 'Sequence':
+                redirectPageName = 'sequence';
+                break;
+            case 'Mediator':
+                redirectPageName = 'mediator';
+                break;
+            case 'Proxy Service':
+                redirectPageName = 'proxy';
+                break;
+            case 'Inbound Endpoint':
+                redirectPageName = 'inbound';
+                break;
+            default:
+                redirectPageName = '';
+        }
+        let formattedString =
+            urlString.substring(0, pageNameStartIndex + 1) + redirectPageName + urlString.substring(pageNameEndIndex, -1);
+
+        let redirectUrl = new URL(formattedString);
+        redirectUrl.searchParams.append(URL_PARAMETER_ID, clickedComponentName);
+
+        window.location.href = redirectUrl.toString();
+    }
+
     /**
      * Draw the graph with parameters from the widget state
      *
      * @returns {*} A VizG graph component with the required graph
      */
     drawGraph() {
-        return <VizG theme={'dark'} config={this.state.graphConfig} data={this.state.graphData}
-                     metadata={this.state.graphMetadata}/>;
+        console.log("Graph Config:", this.state.graphConfig);
+        return <VizG
+            theme={this.props.muiTheme.name}
+            config={this.state.graphConfig}
+            data={this.state.graphData}
+            metadata={this.state.graphMetadata}
+            onClick={this.handleGraphOnClick.bind(this)}
+            height={this.props.glContainer.height}
+            width={this.props.glContainer.width}
+        />;
     }
 
     render() {
         return (
-            <div id={DIV_ID_GRAPH} style={{width: this.state.graphWidth * 1, height: this.state.graphHeight * 1}}>
-                {this.state.clearGraph ? this.getEmptyRecordsText() : this.drawGraph()}
+            <div>
+                <div id={DIV_ID_GRAPH}>
+                    {this.state.clearGraph ? this.getEmptyRecordsText() : this.drawGraph()}
+                </div>
             </div>
         );
     }
