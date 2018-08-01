@@ -33,7 +33,7 @@
             "Mediator",
             "API Resource",
             "Proxy Service",
-            "Inbound Endpoint"
+            "Inbound EndPoint"
           ]
         },
         "defaultValue": "API"

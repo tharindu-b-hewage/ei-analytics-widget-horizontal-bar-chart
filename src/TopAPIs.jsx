@@ -1,9 +1,9 @@
-import React, {Component} from 'react';
+import React, {Component} from 'react'; // todo: unused, liecence header
 import Widget from '@wso2-dashboards/widget';
-import VizG from 'react-vizgrammar';
+import VizG from '/home/tharindu/workspace/projects/probation/AnalyticsOnSP/Widgets/Custom/react-vizgrammar';
 import moment from 'moment';
 
-var BAR_GRAPH_TYPE = 'Component Type Selection';
+var BAR_GRAPH_TYPE = 'Component Type Selection'; // todo: remove var
 var URL_PARAMETER_ID = 'id';
 var DIV_ID_GRAPH = 'graph';
 var PUBLISHER_DATE_TIME_PICKER = 'granularity';
@@ -44,9 +44,9 @@ class TopAPIs extends Widget {
                 "ordinal",
                 "linear"
             ]
-        }
+        };
 
-        let data = [
+        let data = [ // todo: remove
             ['TestAPI1', 50],
             ['TestAPI2', 43],
         ];
@@ -64,15 +64,20 @@ class TopAPIs extends Widget {
             timeUnitParameter: null
         };
 
-        this.props.glContainer.on('resize', this.handleResize.bind(this));
+        this.props.glContainer.on('resize', this.handleResize.bind(this)); // todo: use inline method
 
         this.handlePublisherParameters = this.handlePublisherParameters.bind(this);
+// todo: extra spaces
         this.handleGraphUpdate = this.handleGraphUpdate.bind(this);
+
         this.handleStats = this.handleStats.bind(this);
     }
 
     handleResize() {
-        this.setState({width: this.props.glContainer.width, height: this.props.glContainer.height});
+        this.setState({
+            width: this.props.glContainer.width,
+            height: this.props.glContainer.height
+        });
     }
 
     componentWillMount() {
@@ -91,7 +96,7 @@ class TopAPIs extends Widget {
                 timeFromParameter: moment(message.from).format("YYYY-MM-DD HH:mm:ss"),
                 timeToParameter: moment(message.to).format("YYYY-MM-DD HH:mm:ss"),
                 timeUnitParameter: message.granularity,
-                clearGraph: true
+                clearGraph: true // todo: rename (isLoading)
             }, this.handleGraphUpdate);
         }
     }
@@ -100,30 +105,23 @@ class TopAPIs extends Widget {
      * Update graph parameters according to the updated publisher widget parameters
      */
     handleGraphUpdate() {
-        //console.log('A');
         super.getWidgetConfiguration(this.props.widgetID)
             .then((message) => {
-
+// todo: remove new line
                 // Get data provider sub json string from the widget configuration
-                let dataProviderConf = this.getProviderConf(message.data);
+                let dataProviderConf = TopAPIs.getProviderConf(message.data);
                 var query = dataProviderConf.configs.config.queryData.query;
 
                 let graphType = this.state.graphType;
-                let aggregator;
-                if (graphType === 'API' || graphType === 'Proxy Service' || graphType === 'Inbound Endpoint') {
-                    aggregator = 'ESBStat';
-                }
-                else {
-                    aggregator = 'MediatorStat';
-                }
+                let aggregator = graphType === 'API' || graphType === 'Proxy Service' || graphType === 'Inbound Endpoint' ? 'ESBStat' : 'MediatorStat';
 
                 // Insert required parameters to the query string
                 let formattedQuery = query
                     .replace("{{aggregator}}", aggregator)
-                    .replace("{{componentType}}", "\'" + graphType + "\'")
+                    .replace("{{componentType}}", "\'" + graphType + "\'") // todo: Add quots iin the query
                     .replace("{{tenantId}}", TENANT_ID)
                     .replace("{{timeFrom}}", "\'" + this.state.timeFromParameter + "\'")
-                    .replace("{{timeTo}}", "\'" + this.state.timeToParameter + "\'")
+                    .replace("{{timeTo}}", "\'" + this.state.timeToParameter + "\'");
 
                 dataProviderConf.configs.config.queryData.query = formattedQuery;
 
@@ -134,11 +132,11 @@ class TopAPIs extends Widget {
                     );
             })
             .catch((error) => {
-                // console.log(error);
+                // todo: Handle error
             });
     }
 
-    getProviderConf(widgetConfiguration) {
+    static getProviderConf(widgetConfiguration) {
         return widgetConfiguration.configs.providerConfig;
     }
 
@@ -193,7 +191,7 @@ class TopAPIs extends Widget {
      *
      * @returns {*} <div> element containing the notification message
      */
-    getEmptyRecordsText() {
+    getEmptyRecordsText() { // todo: make static
         return (
             <div class="status-message" style={{color: 'white', marginLeft: 'auto', marginRight: 'auto'}}>
                 <div class="message message-info">
@@ -260,6 +258,9 @@ class TopAPIs extends Widget {
     }
 
     render() {
+        // todo: remove div
+        // todo: use string value
+        // todo: rename (renderEmpty.., **)
         return (
             <div>
                 <div id={DIV_ID_GRAPH}>
