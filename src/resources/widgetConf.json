@@ -44,7 +44,8 @@
         "type": {
           "name": "TEXT",
           "possibleValues": []
-        }
+        },
+        "defaultValue": "EI-Analytics-Horizontal-Bar-Chart"
       }
     ]
   }
